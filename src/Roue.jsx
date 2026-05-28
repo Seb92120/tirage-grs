@@ -66,11 +66,29 @@ export default function Roue() {
     setRevealed({ defi: false, question: false });
     setSpinning(true);
 
-    const winnerIndex = Math.floor(Math.random() * remaining.length);
-    const slice = 360 / remaining.length;
-    // On veut que la tranche gagnante arrive en haut (270°)
-    const targetAngle = 360 * 8 + (270 - winnerIndex * slice - slice / 2);
-    const finalRotation = rotation + targetAngle;
+    const n = remaining.length;
+    const slice = 360 / n;
+
+    // Choisir un gagnant au hasard
+    const winnerIndex = Math.floor(Math.random() * n);
+
+    // Les tranches sont dessinées à partir de -90° (haut).
+    // La tranche i occupe l'arc [i*slice - 90, (i+1)*slice - 90].
+    // L'indicateur est en haut = 0° dans le repère de la roue après rotation.
+    // On veut que le milieu de la tranche gagnante soit à 0° après rotation.
+    // Milieu de la tranche i (avant rotation) = i*slice + slice/2 - 90.
+    // Après rotation R, cette position est à (i*slice + slice/2 - 90 + R) mod 360.
+    // On veut ce résultat = 0, donc R = 90 - i*slice - slice/2.
+    // On ajoute 8 tours complets pour l'animation.
+
+    const midAngle = winnerIndex * slice + slice / 2 - 90;
+    const extraSpins = 360 * 8;
+    // rotation actuelle ramenée entre 0 et 360
+    const currentMod = ((rotation % 360) + 360) % 360;
+    // delta pour amener midAngle à 0
+    let delta = (-midAngle - currentMod + 360) % 360;
+    if (delta < 10) delta += 360; // évite un micro-saut
+    const finalRotation = rotation + extraSpins + delta;
 
     let start = null;
     const duration = 4000;
@@ -106,7 +124,7 @@ export default function Roue() {
   }
 
   const cx = 200, cy = 200, r = 180;
-  const n = remaining.length;
+  const n = remaining.length; // utilisé pour le rendu SVG
 
   if (loading) return <div style={styles.root}><div style={styles.msg}>Chargement…</div></div>;
   if (error) return <div style={styles.root}><div style={styles.msg}>{error}</div></div>;
