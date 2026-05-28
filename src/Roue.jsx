@@ -6,60 +6,17 @@ const supabase = createClient(
   "sb_publishable_UvbD8gSKMZVx0_8zCkz85g_ElkgnyPl"
 );
 
-const COLORS = [
-  "#c8a96e", "#8a7a5a", "#a08050", "#d4b87a", "#b89860",
-  "#c0a060", "#e0c880", "#907040", "#b0883a", "#d8b860",
-  "#a87830", "#c89848",
-];
-
-function polarToXY(angle, r, cx, cy) {
-  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
-}
-
-function buildWheelPath(index, total, cx, cy, r) {
-  const slice = (2 * Math.PI) / total;
-  const start = index * slice - Math.PI / 2;
-  const end = start + slice;
-  const s = polarToXY(start, r, cx, cy);
-  const e = polarToXY(end, r, cx, cy);
-  const large = slice > Math.PI ? 1 : 0;
-  return `M${cx},${cy} L${s.x},${s.y} A${r},${r} 0 ${large},1 ${e.x},${e.y} Z`;
-}
-
-function getLabelPos(index, total, cx, cy, r) {
-  const slice = (2 * Math.PI) / total;
-  const mid = index * slice - Math.PI / 2 + slice / 2;
-  return {
-    x: cx + r * 0.65 * Math.cos(mid),
-    y: cy + r * 0.65 * Math.sin(mid),
-    angle: (mid * 180) / Math.PI + 90,
-  };
-}
-
-// Déduit l'index gagnant depuis la rotation finale et le nombre de tranches.
-// La roue SVG démarre à -90° (tranche 0 commence en haut).
-// L'indicateur est fixe en haut.
-// Quand la roue a tourné de `rot` degrés, la tranche sous l'indicateur est :
-// index = floor( ((90 - rot % 360 + 360) % 360) / slice ) % n
-function getWinnerIndex(rot, n) {
-  const slice = 360 / n;
-  const mod = ((rot % 360) + 360) % 360;
-  const pointed = ((90 - mod) % 360 + 360) % 360;
-  return Math.floor(pointed / slice) % n;
-}
-
-export default function Roue() {
+export default function SlotMachine() {
   const [participants, setParticipants] = useState([]);
   const [remaining, setRemaining] = useState([]);
   const [done, setDone] = useState([]);
   const [spinning, setSpinning] = useState(false);
-  const [rotation, setRotation] = useState(0);
+  const [displayed, setDisplayed] = useState("?");
   const [winner, setWinner] = useState(null);
   const [revealed, setRevealed] = useState({ defi: false, question: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const animRef = useRef(null);
-  const rotationRef = useRef(0); // source de vérité pour la rotation courante
+  const intervalRef = useRef(null);
 
   useEffect(() => { loadParticipants(); }, []);
 
@@ -69,186 +26,174 @@ export default function Roue() {
     if (error || !data) { setError("Impossible de charger les participants."); setLoading(false); return; }
     setParticipants(data);
     setRemaining(data);
+    setDisplayed(data.length > 0 ? data[0].name : "?");
     setLoading(false);
   }
 
-  function spin() {
+  function draw() {
     if (spinning || remaining.length === 0) return;
     setWinner(null);
     setRevealed({ defi: false, question: false });
     setSpinning(true);
 
-    const snap = remaining; // capture stable du tableau au moment du clic
-    const n = snap.length;
+    const snap = [...remaining];
+    const winnerIndex = Math.floor(Math.random() * snap.length);
+    const totalDuration = 3000;
+    const start = Date.now();
 
-    // On choisit un angle aléatoire final, puis on déduit le gagnant.
-    const randomExtra = Math.random() * 360;
-    const finalRotation = rotationRef.current + 360 * 8 + randomExtra;
-    const winnerIndex = getWinnerIndex(finalRotation, n);
+    // Défilement rapide puis ralentissement
+    function tick() {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / totalDuration, 1);
 
-    const startRot = rotationRef.current;
-    let start = null;
-    const duration = 4000;
-
-    function ease(t) {
-      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    }
-
-    function animate(ts) {
-      if (!start) start = ts;
-      const elapsed = ts - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const current = startRot + (finalRotation - startRot) * ease(progress);
-      rotationRef.current = current;
-      setRotation(current);
       if (progress < 1) {
-        animRef.current = requestAnimationFrame(animate);
+        // Intervalle qui grandit pour simuler le ralentissement
+        const delay = 50 + Math.pow(progress, 2) * 400;
+        const randomName = snap[Math.floor(Math.random() * snap.length)].name;
+        setDisplayed(randomName);
+        intervalRef.current = setTimeout(tick, delay);
       } else {
-        rotationRef.current = finalRotation;
-        setRotation(finalRotation);
+        setDisplayed(snap[winnerIndex].name);
         setWinner(snap[winnerIndex]);
         setSpinning(false);
       }
     }
-    animRef.current = requestAnimationFrame(animate);
+    tick();
   }
 
   function next() {
     if (!winner) return;
+    const newRemaining = remaining.filter(p => p.name !== winner.name);
     setDone(prev => [...prev, winner]);
-    setRemaining(prev => prev.filter(p => p.name !== winner.name));
+    setRemaining(newRemaining);
     setWinner(null);
     setRevealed({ defi: false, question: false });
+    setDisplayed(newRemaining.length > 0 ? newRemaining[0].name : "—");
   }
 
-  const cx = 200, cy = 200, r = 180;
+  if (loading) return <div style={s.root}><div style={s.msg}>Chargement…</div></div>;
+  if (error) return <div style={s.root}><div style={s.msg}>{error}</div></div>;
+  if (participants.length === 0) return <div style={s.root}><div style={s.msg}>Aucun tirage trouvé.</div></div>;
+
   const n = remaining.length;
 
-  if (loading) return <div style={styles.root}><div style={styles.msg}>Chargement…</div></div>;
-  if (error) return <div style={styles.root}><div style={styles.msg}>{error}</div></div>;
-  if (participants.length === 0) return <div style={styles.root}><div style={styles.msg}>Aucun tirage trouvé dans la base.</div></div>;
-
   return (
-    <div style={styles.root}>
-      <div style={styles.grain} />
-      <div style={styles.layout}>
+    <div style={s.root}>
+      <div style={s.grain} />
+      <div style={s.layout}>
 
-        {/* ROUE */}
-        <div style={styles.wheelWrap}>
-          <div style={styles.eyebrow}>ROUE DES RÉVÉLATIONS</div>
-          <div style={styles.pointer}>▼</div>
+        {/* SLOT */}
+        <div style={s.leftCol}>
+          <div style={s.eyebrow}>RÉVÉLATION EN RÉUNION</div>
+          <h1 style={s.title}>Qui passe<br />maintenant ?</h1>
 
-          <div style={{ position: "relative", width: 400, height: 400 }}>
-            <svg
-              width="400" height="400"
-              style={{ transform: `rotate(${rotation}deg)`, display: "block" }}
-            >
-              {n === 0 ? (
-                <circle cx={cx} cy={cy} r={r} fill="#2e2b26" />
-              ) : (
-                remaining.map((p, i) => {
-                  const path = buildWheelPath(i, n, cx, cy, r);
-                  const label = getLabelPos(i, n, cx, cy, r);
-                  const fontSize = n <= 6 ? 13 : n <= 9 ? 11 : 9;
-                  return (
-                    <g key={p.name}>
-                      <path d={path} fill={COLORS[i % COLORS.length]} stroke="#0f0e0c" strokeWidth="2" />
-                      <text
-                        x={label.x} y={label.y}
-                        textAnchor="middle" dominantBaseline="middle"
-                        transform={`rotate(${label.angle}, ${label.x}, ${label.y})`}
-                        fill="#0f0e0c"
-                        fontSize={fontSize}
-                        fontFamily="'Courier New', monospace"
-                        fontWeight="bold"
-                        style={{ userSelect: "none" }}
-                      >
-                        {p.name.length > 10 ? p.name.slice(0, 9) + "…" : p.name}
-                      </text>
-                    </g>
-                  );
-                })
-              )}
-              <circle cx={cx} cy={cy} r={18} fill="#0f0e0c" stroke="#2e2b26" strokeWidth="2" />
-            </svg>
+          <div style={s.slotWrap}>
+            <div style={s.slotScreen}>
+              <div style={{
+                ...s.slotName,
+                animation: spinning ? "flicker 0.1s infinite" : "none",
+                color: winner ? "#c8a96e" : spinning ? "#f0ece4" : "#8a8278",
+              }}>
+                {displayed}
+              </div>
+            </div>
+            <div style={s.slotShadowTop} />
+            <div style={s.slotShadowBot} />
           </div>
 
           <button
-            style={{ ...styles.btn, marginTop: 20, opacity: (spinning || n === 0) ? 0.4 : 1 }}
-            onClick={spin}
+            style={{ ...s.btn, opacity: (spinning || n === 0) ? 0.4 : 1, marginTop: 24 }}
+            onClick={draw}
             disabled={spinning || n === 0}
           >
-            {spinning ? "…" : n === 0 ? "Terminé ✦" : "Tourner →"}
+            {spinning ? "…" : n === 0 ? "Tous passés ✦" : "Tirer au sort →"}
           </button>
 
+          <div style={s.counter}>{done.length} / {participants.length} participants passés</div>
+
           {done.length > 0 && (
-            <div style={styles.doneList}>
-              <div style={styles.doneLabel}>Déjà passés</div>
-              {done.map(d => <span key={d.name} style={styles.doneName}>{d.name}</span>)}
+            <div style={s.doneList}>
+              <div style={s.doneLabel}>Déjà passés</div>
+              <div style={s.doneNames}>
+                {done.map(d => <span key={d.name} style={s.doneName}>{d.name}</span>)}
+              </div>
             </div>
           )}
         </div>
 
-        {/* PANNEAU RÉSULTAT */}
-        <div style={styles.panel}>
-          {!winner && (
-            <div style={styles.panelEmpty}>
+        {/* PANNEAU */}
+        <div style={s.panel}>
+          {!winner ? (
+            <div style={s.panelEmpty}>
               {n > 0
-                ? <span>Tourne la roue pour<br />désigner un participant.</span>
+                ? <span>Lance le tirage pour<br />désigner un participant.</span>
                 : <span>Tous les participants<br />sont passés ✦</span>
               }
             </div>
-          )}
-
-          {winner && (
+          ) : (
             <>
-              <div style={styles.winnerName}>{winner.name}</div>
+              <div style={s.winnerName}>{winner.name}</div>
 
-              <div style={styles.revealBlock}>
-                <div style={styles.revealLabel}>🎯 DÉFI</div>
+              <div style={s.revealBlock}>
+                <div style={s.revealLabel}>🎯 DÉFI</div>
                 {revealed.defi
-                  ? <div style={styles.revealText}>{winner.defi}</div>
-                  : <button style={styles.revealBtn} onClick={() => setRevealed(r => ({ ...r, defi: true }))}>
+                  ? <div style={s.revealText}>{winner.defi}</div>
+                  : <button style={s.revealBtn} onClick={() => setRevealed(r => ({ ...r, defi: true }))}>
                       Révéler le défi
                     </button>
                 }
               </div>
 
-              <div style={styles.divider} />
+              <div style={s.divider} />
 
-              <div style={styles.revealBlock}>
-                <div style={styles.revealLabel}>💬 QUESTION</div>
+              <div style={s.revealBlock}>
+                <div style={s.revealLabel}>💬 QUESTION</div>
                 {revealed.question
-                  ? <div style={styles.revealText}>{winner.question}</div>
-                  : <button style={styles.revealBtn} onClick={() => setRevealed(r => ({ ...r, question: true }))}>
+                  ? <div style={s.revealText}>{winner.question}</div>
+                  : <button style={s.revealBtn} onClick={() => setRevealed(r => ({ ...r, question: true }))}>
                       Révéler la question
                     </button>
                 }
               </div>
 
               {revealed.defi && revealed.question && (
-                <button style={{ ...styles.btn, marginTop: 32 }} onClick={next}>
+                <button style={{ ...s.btn, marginTop: 32 }} onClick={next}>
                   Participant suivant →
                 </button>
               )}
             </>
           )}
         </div>
+
       </div>
+
+      <style>{`
+        @keyframes flicker {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+      `}</style>
     </div>
   );
 }
 
-const styles = {
+const s = {
   root: { minHeight: "100vh", background: "#0f0e0c", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia', serif", padding: 24, position: "relative", overflow: "hidden" },
   grain: { position: "fixed", inset: 0, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E\")", backgroundSize: "200px", pointerEvents: "none", opacity: 0.5, zIndex: 0 },
   layout: { position: "relative", zIndex: 1, display: "flex", gap: 48, alignItems: "flex-start", flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: 900 },
-  wheelWrap: { display: "flex", flexDirection: "column", alignItems: "center" },
-  eyebrow: { fontFamily: "'Courier New', monospace", fontSize: 10, letterSpacing: "0.2em", color: "#c8a96e", marginBottom: 12, textTransform: "uppercase" },
-  pointer: { color: "#c8a96e", fontSize: 24, lineHeight: 1, marginBottom: -8, zIndex: 2 },
+  leftCol: { display: "flex", flexDirection: "column", alignItems: "flex-start", width: 360 },
+  eyebrow: { fontFamily: "'Courier New', monospace", fontSize: 10, letterSpacing: "0.2em", color: "#c8a96e", marginBottom: 16, textTransform: "uppercase" },
+  title: { fontFamily: "'Georgia', serif", fontSize: 36, fontWeight: "normal", color: "#f0ece4", margin: "0 0 32px", lineHeight: 1.2, letterSpacing: "-0.02em" },
+  slotWrap: { position: "relative", width: "100%" },
+  slotScreen: { background: "#0f0e0c", border: "2px solid #2e2b26", borderRadius: 2, padding: "28px 24px", textAlign: "center", overflow: "hidden", position: "relative" },
+  slotShadowTop: { position: "absolute", top: 0, left: 0, right: 0, height: 32, background: "linear-gradient(to bottom, #0f0e0c, transparent)", pointerEvents: "none", zIndex: 1 },
+  slotShadowBot: { position: "absolute", bottom: 0, left: 0, right: 0, height: 32, background: "linear-gradient(to top, #0f0e0c, transparent)", pointerEvents: "none", zIndex: 1 },
+  slotName: { fontSize: 38, fontFamily: "'Georgia', serif", letterSpacing: "-0.02em", transition: "color 0.2s", minHeight: 48 },
   btn: { background: "#c8a96e", color: "#0f0e0c", border: "none", borderRadius: 2, padding: "12px 28px", fontSize: 14, fontFamily: "'Courier New', monospace", letterSpacing: "0.05em", cursor: "pointer", fontWeight: "bold" },
-  doneList: { marginTop: 20, display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", maxWidth: 400 },
-  doneLabel: { width: "100%", textAlign: "center", color: "#3a3630", fontSize: 10, fontFamily: "'Courier New', monospace", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 },
+  counter: { color: "#3a3630", fontSize: 11, fontFamily: "'Courier New', monospace", marginTop: 16, letterSpacing: "0.05em" },
+  doneList: { marginTop: 20, width: "100%" },
+  doneLabel: { color: "#3a3630", fontSize: 10, fontFamily: "'Courier New', monospace", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 },
+  doneNames: { display: "flex", flexWrap: "wrap", gap: 6 },
   doneName: { background: "#1a1814", border: "1px solid #2e2b26", borderRadius: 2, padding: "4px 10px", color: "#4a4640", fontSize: 11, fontFamily: "'Courier New', monospace" },
   panel: { background: "#1a1814", border: "1px solid #2e2b26", borderRadius: 2, padding: "40px 36px", width: 320, minHeight: 360, boxShadow: "0 32px 80px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column" },
   panelEmpty: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#3a3630", fontSize: 15, fontFamily: "'Georgia', serif", textAlign: "center", lineHeight: 1.6, fontStyle: "italic" },
