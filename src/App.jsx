@@ -22,7 +22,7 @@ const DEFIS = [
 "Le message auquel tu as mis 3 jours à répondre parce que tu ne savais pas quoi dire",
 "Le moment le plus joyeux sur ce poste",
 "Le moment le plus lunaire en réunion",
-"Le moment où tu as fait semblant de comprendre quelque chose… alors que pas du tout",
+"Le moment où tu as fait semblant de comprendre quelque chose alors que pas du tout",
 "Le moment où tu as réalisé que tu t'étais trompé(e) de destinataire",
 "L'irritant dans ton équipe",
 "Mime un moment fort de l'année de ton équipe (les autres vont deviner)",
@@ -57,7 +57,7 @@ const QUESTIONS = [
 "Un slogan pour caractériser ton équipe",
 "Une chose que les gens de l'extérieur ne savent pas sur ton équipe et qui les surprendrait",
 "La compétence cachée dans ton équipe que peu de gens connaissent",
-"La phrase que tu n'as jamais dite à ton équipe… mais que tu devrais peut-être dire",
+"La phrase que tu n'as jamais dite à ton équipe mais que tu devrais peut-être dire",
 ];
 
 function pickRandom(arr) {
