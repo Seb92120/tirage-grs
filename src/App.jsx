@@ -164,12 +164,10 @@ export default function Tirage() {
             <div style={styles.resultLabel}>💬 TA QUESTION</div>
             <div style={styles.resultText}>{result.question}</div>
           </div>
-          <p style={styles.hint}>Garde ça pour toi jusqu'aux GRS ✦</p>
-          <button style={styles.btnSecondary} onClick={() => {
-            try { localStorage.removeItem("tirage-user"); } catch {}
-            setNameInput(""); setResult(null); setName(""); setError("");
-            setScreen("home");
-          }}>← Retour (autre participant)</button>
+          <div style={styles.finalMsg}>
+            <div style={styles.finalMsgTitle}>C'est tout pour toi ✦</div>
+            <div style={styles.finalMsgSub}>Note bien ton défi et ta question — tu en auras besoin en réunion. Garde-les secrets jusqu'au jour J.</div>
+          </div>
         </div>
       )}
 
@@ -269,4 +267,7 @@ const styles = {
   drawDefi: { color: "#8a8278", fontSize: 13, fontFamily: "'Georgia', serif", fontStyle: "italic" },
   drawQ: { color: "#6a6460", fontSize: 12, fontFamily: "'Georgia', serif", fontStyle: "italic" },
   adminActions: { display: "flex", gap: 10, flexWrap: "wrap" },
+  finalMsg: { marginTop: 28, padding: "20px 16px", background: "#0f0e0c", border: "1px solid #2e2b26", borderRadius: 2 },
+  finalMsgTitle: { fontFamily: "'Courier New', monospace", fontSize: 11, letterSpacing: "0.15em", color: "#c8a96e", textTransform: "uppercase", marginBottom: 10 },
+  finalMsgSub: { color: "#6a6460", fontSize: 13, fontFamily: "'Georgia', serif", fontStyle: "italic", lineHeight: 1.7 },
 };
