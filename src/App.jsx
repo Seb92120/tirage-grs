@@ -12,7 +12,7 @@ const DEFIS = [
 "La décision venue d'en haut que tu as eu le plus de mal à expliquer à ton équipe",
 "La meilleure perle dans les mails reçus",
 "La pire boulette de ton équipe",
-"La pire situation à gérer de ton équipe",
+"La pire situation à gérer dans ton équipe",
 "La plus belle perle de RIAS",
 "La plus grosse déconvenue rencontrée sur ce poste",
 "La réponse la plus langue de bois de RIAS",
