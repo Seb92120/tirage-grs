@@ -18,7 +18,7 @@ const DEFIS = [
 "La réponse la plus langue de bois de RIAS",
 "Le libellé d'activité le plus original",
 "Le mail le plus surprenant que tu aies reçu de la part de ton équipe",
-"Le mail le plus drôle reçu par de ton équipe",
+"Le mail le plus drôle reçu par ton équipe",
 "Le message auquel tu as mis 3 jours à répondre parce que tu ne savais pas quoi dire",
 "Le moment le plus joyeux sur ce poste",
 "Le moment le plus lunaire en réunion",
