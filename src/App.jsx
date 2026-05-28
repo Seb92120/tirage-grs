@@ -164,7 +164,7 @@ export default function Tirage() {
             <div style={styles.resultLabel}>💬 TA QUESTION</div>
             <div style={styles.resultText}>{result.question}</div>
           </div>
-          <p style={styles.hint}>Garde ça pour toi jusqu'à la réunion ✦</p>
+          <p style={styles.hint}>Garde ça pour toi jusqu'aux GRS ✦</p>
           <button style={styles.btnSecondary} onClick={() => {
             try { localStorage.removeItem("tirage-user"); } catch {}
             setNameInput(""); setResult(null); setName(""); setError("");
