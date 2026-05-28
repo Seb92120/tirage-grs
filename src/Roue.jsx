@@ -13,10 +13,7 @@ const COLORS = [
 ];
 
 function polarToXY(angle, r, cx, cy) {
-  return {
-    x: cx + r * Math.cos(angle),
-    y: cy + r * Math.sin(angle),
-  };
+  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
 }
 
 function buildWheelPath(index, total, cx, cy, r) {
@@ -32,7 +29,23 @@ function buildWheelPath(index, total, cx, cy, r) {
 function getLabelPos(index, total, cx, cy, r) {
   const slice = (2 * Math.PI) / total;
   const mid = index * slice - Math.PI / 2 + slice / 2;
-  return { x: cx + r * 0.65 * Math.cos(mid), y: cy + r * 0.65 * Math.sin(mid), angle: (mid * 180) / Math.PI + 90 };
+  return {
+    x: cx + r * 0.65 * Math.cos(mid),
+    y: cy + r * 0.65 * Math.sin(mid),
+    angle: (mid * 180) / Math.PI + 90,
+  };
+}
+
+// Déduit l'index gagnant depuis la rotation finale et le nombre de tranches.
+// La roue SVG démarre à -90° (tranche 0 commence en haut).
+// L'indicateur est fixe en haut.
+// Quand la roue a tourné de `rot` degrés, la tranche sous l'indicateur est :
+// index = floor( ((90 - rot % 360 + 360) % 360) / slice ) % n
+function getWinnerIndex(rot, n) {
+  const slice = 360 / n;
+  const mod = ((rot % 360) + 360) % 360;
+  const pointed = ((90 - mod) % 360 + 360) % 360;
+  return Math.floor(pointed / slice) % n;
 }
 
 export default function Roue() {
@@ -46,10 +59,9 @@ export default function Roue() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const animRef = useRef(null);
+  const rotationRef = useRef(0); // source de vérité pour la rotation courante
 
-  useEffect(() => {
-    loadParticipants();
-  }, []);
+  useEffect(() => { loadParticipants(); }, []);
 
   async function loadParticipants() {
     setLoading(true);
@@ -66,33 +78,17 @@ export default function Roue() {
     setRevealed({ defi: false, question: false });
     setSpinning(true);
 
-    const n = remaining.length;
-    const slice = 360 / n;
+    const snap = remaining; // capture stable du tableau au moment du clic
+    const n = snap.length;
 
-    // Choisir un gagnant au hasard
-    const winnerIndex = Math.floor(Math.random() * n);
+    // On choisit un angle aléatoire final, puis on déduit le gagnant.
+    const randomExtra = Math.random() * 360;
+    const finalRotation = rotationRef.current + 360 * 8 + randomExtra;
+    const winnerIndex = getWinnerIndex(finalRotation, n);
 
-    // Les tranches sont dessinées à partir de -90° (haut).
-    // La tranche i occupe l'arc [i*slice - 90, (i+1)*slice - 90].
-    // L'indicateur est en haut = 0° dans le repère de la roue après rotation.
-    // On veut que le milieu de la tranche gagnante soit à 0° après rotation.
-    // Milieu de la tranche i (avant rotation) = i*slice + slice/2 - 90.
-    // Après rotation R, cette position est à (i*slice + slice/2 - 90 + R) mod 360.
-    // On veut ce résultat = 0, donc R = 90 - i*slice - slice/2.
-    // On ajoute 8 tours complets pour l'animation.
-
-    const midAngle = winnerIndex * slice + slice / 2 - 90;
-    const extraSpins = 360 * 8;
-    // rotation actuelle ramenée entre 0 et 360
-    const currentMod = ((rotation % 360) + 360) % 360;
-    // delta pour amener midAngle à 0
-    let delta = (-midAngle - currentMod + 360) % 360;
-    if (delta < 10) delta += 360; // évite un micro-saut
-    const finalRotation = rotation + extraSpins + delta;
-
+    const startRot = rotationRef.current;
     let start = null;
     const duration = 4000;
-    const startRot = rotation;
 
     function ease(t) {
       return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -103,12 +99,14 @@ export default function Roue() {
       const elapsed = ts - start;
       const progress = Math.min(elapsed / duration, 1);
       const current = startRot + (finalRotation - startRot) * ease(progress);
+      rotationRef.current = current;
       setRotation(current);
       if (progress < 1) {
         animRef.current = requestAnimationFrame(animate);
       } else {
+        rotationRef.current = finalRotation;
         setRotation(finalRotation);
-        setWinner(remaining[winnerIndex]);
+        setWinner(snap[winnerIndex]);
         setSpinning(false);
       }
     }
@@ -124,7 +122,7 @@ export default function Roue() {
   }
 
   const cx = 200, cy = 200, r = 180;
-  const n = remaining.length; // utilisé pour le rendu SVG
+  const n = remaining.length;
 
   if (loading) return <div style={styles.root}><div style={styles.msg}>Chargement…</div></div>;
   if (error) return <div style={styles.root}><div style={styles.msg}>{error}</div></div>;
@@ -138,14 +136,12 @@ export default function Roue() {
         {/* ROUE */}
         <div style={styles.wheelWrap}>
           <div style={styles.eyebrow}>ROUE DES RÉVÉLATIONS</div>
-
-          {/* Indicateur */}
           <div style={styles.pointer}>▼</div>
 
           <div style={{ position: "relative", width: 400, height: 400 }}>
             <svg
               width="400" height="400"
-              style={{ transform: `rotate(${rotation}deg)`, transition: spinning ? "none" : undefined, display: "block" }}
+              style={{ transform: `rotate(${rotation}deg)`, display: "block" }}
             >
               {n === 0 ? (
                 <circle cx={cx} cy={cy} r={r} fill="#2e2b26" />
