@@ -26,7 +26,7 @@ export default function SlotMachine() {
     if (error || !data) { setError("Impossible de charger les participants."); setLoading(false); return; }
     setParticipants(data);
     setRemaining(data);
-    setDisplayed(data.length > 0 ? data[0].name : "?");
+    setDisplayed("?");
     setLoading(false);
   }
 
@@ -68,7 +68,7 @@ export default function SlotMachine() {
     setRemaining(newRemaining);
     setWinner(null);
     setRevealed({ defi: false, question: false });
-    setDisplayed(newRemaining.length > 0 ? newRemaining[0].name : "—");
+    setDisplayed("?");
   }
 
   if (loading) return <div style={s.root}><div style={s.msg}>Chargement…</div></div>;
